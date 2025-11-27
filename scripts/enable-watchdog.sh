@@ -3,24 +3,30 @@ set -e
 
 echo "=== Enabling watchdog ==="
 
-# Enable watchdog kernel module
-echo "bcm2835_wdt" | sudo tee -a /etc/modules-load.d/watchdog.conf
+# Enable watchdog kernel module at boot
+echo "bcm2835_wdt" | sudo tee /etc/modules-load.d/watchdog.conf
 
-# Enable systemd watchdog
+# Create directory if missing
+sudo mkdir -p /etc/systemd/system.conf.d
+
+# Enable systemd watchdog timers
 sudo bash -c 'cat > /etc/systemd/system.conf.d/override-watchdog.conf <<EOF
 [Manager]
 RuntimeWatchdogSec=20s
 ShutdownWatchdogSec=10min
 EOF'
 
-# Enable auto-restart for key services
+# Enable auto-restart for important services
 for svc in ssh tailscaled; do
-  sudo systemctl edit $svc <<EOF
+sudo mkdir -p /etc/systemd/system/${svc}.service.d
+sudo bash -c "cat > /etc/systemd/system/${svc}.service.d/restart.conf <<EOF
 [Service]
 Restart=always
 RestartSec=5
-EOF
+EOF"
 done
 
+# Reload systemd
 sudo systemctl daemon-reload
-echo "Watchdog enabled and services configured to auto-restart."
+
+echo "Watchdog enabled and auto-restart configured."
